@@ -1,4 +1,4 @@
-//import api from "../api"; // Make sure the path points to your new api.js file
+
 import { useState } from "react";
 
 type Employee = {

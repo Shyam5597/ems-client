@@ -1,4 +1,4 @@
-import api from "../api"; // Make sure the path points to your new api.js file
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
@@ -111,8 +111,8 @@ export default function Analytics() {
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [usersRes, leavesRes] = await Promise.all([
-          fetch("http://localhost:5000/api/users", { headers }),
-          fetch("http://localhost:5000/api/leaves", { headers })
+          fetch(`${import.meta.env.VITE_API_URL}/api/users`, { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/leaves`, { headers })
         ]);
 
         const uData = usersRes.ok ? await usersRes.json() : [];
@@ -150,7 +150,7 @@ export default function Analytics() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance })
@@ -213,7 +213,7 @@ export default function Analytics() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance })

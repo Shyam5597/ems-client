@@ -125,8 +125,8 @@ export default function Departments() {
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [deptsRes, usersRes] = await Promise.all([
-          fetch("http://localhost:5000/api/departments", { headers }),
-          fetch("http://localhost:5000/api/users", { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/departments`, { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/users`, { headers }),
         ]);
         if (deptsRes.ok) setDepartments(await deptsRes.json());
         if (usersRes.ok) setUsers(await usersRes.json());
@@ -157,7 +157,7 @@ export default function Departments() {
     setIsAdding(true);
     setAddError("");
     try {
-      const res = await fetch("http://localhost:5000/api/departments", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/departments`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: trimmed }),
@@ -182,7 +182,7 @@ export default function Departments() {
     if (!deptToDelete) return;
     const { id, name } = deptToDelete;
     try {
-      const res = await fetch(`http://localhost:5000/api/departments/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/departments/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

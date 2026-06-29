@@ -113,8 +113,8 @@ export default function Dashboard() {
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [usersRes, leavesRes] = await Promise.all([
-          fetch("http://localhost:5000/api/users", { headers }),
-          fetch("http://localhost:5000/api/leaves", { headers })
+          fetch(`${import.meta.env.VITE_API_URL}/api/users`, { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/leaves`, { headers })
         ]);
         const uData = usersRes.ok ? await usersRes.json() : [];
         const lData = leavesRes.ok ? await leavesRes.json() : [];
@@ -145,7 +145,7 @@ export default function Dashboard() {
       if (index !== -1) newAttendance[index] = { ...newAttendance[index], checkOut: timeNow };
     }
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance })
@@ -202,7 +202,7 @@ export default function Dashboard() {
       if (index !== -1) newAttendance[index] = { ...newAttendance[index], checkOut: "" };
     }
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance })

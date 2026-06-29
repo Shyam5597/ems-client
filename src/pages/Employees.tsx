@@ -206,7 +206,7 @@ const DynamicEditModal = ({ employee, onClose, onUpdate, token, canEdit }: { emp
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${employee.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${employee.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ role: employee.role, department, designation })
@@ -346,7 +346,7 @@ export default function Employees() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/users", { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) setUsers(await res.json());
       } catch (error) { console.error("Failed to fetch users", error); }
     };
@@ -362,7 +362,7 @@ export default function Employees() {
   const executeDelete = async (id: string) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         setUsers(users.filter((u) => u.id !== id));
         setEmployeeToDelete(null);

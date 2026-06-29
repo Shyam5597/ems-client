@@ -122,7 +122,7 @@ export default function Profile() {
       const myId = currentUser?.id || currentUser?._id;
       if (!myId || !token) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -276,7 +276,7 @@ export default function Profile() {
     if (modal.flow === "password") updatePayload = { password: modal.newPassword };
 
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(updatePayload),

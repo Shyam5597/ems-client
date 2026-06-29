@@ -181,7 +181,7 @@ export default function Attendance() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/users", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -256,7 +256,7 @@ export default function Attendance() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${currentUser.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${currentUser.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance }),
@@ -312,7 +312,7 @@ export default function Attendance() {
       if (index !== -1) newAttendance[index] = { ...newAttendance[index], checkOut: "" };
     }
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${currentUser.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}s/api/users/${currentUser.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance }),
@@ -346,7 +346,7 @@ export default function Attendance() {
       if (index !== -1) newAttendance.splice(index, 1);
     }
     try {
-      await fetch(`http://localhost:5000/api/users/${userId}`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/users/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ attendance: newAttendance }),

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import MainLayout from "../layouts/MainLayout";
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000");
+const socket = io(`${import.meta.env.VITE_API_URL}`);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Leave = {
@@ -84,7 +84,7 @@ export default function Leaves() {
   const fetchLeaves = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/leaves", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/leaves`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -123,7 +123,7 @@ export default function Leaves() {
 
     try {
       setSubmitting(true);
-      const res = await fetch("http://localhost:5000/api/leaves", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/leaves`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify(newLeave),
@@ -157,7 +157,7 @@ export default function Leaves() {
     const { id } = withdrawalConfirm;
     try {
       setIsWithdrawing(true);
-      const res = await fetch(`http://localhost:5000/api/leaves/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/leaves/${id}`, {
         method:  "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -179,7 +179,7 @@ export default function Leaves() {
   // ── Admin: accept / reject ─────────────────────────────────────────────────
   const updateLeaveStatus = async (id: string, status: "Accepted" | "Rejected") => {
     try {
-      const res = await fetch(`http://localhost:5000/api/leaves/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/leaves/${id}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ status }),

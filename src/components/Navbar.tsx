@@ -1,4 +1,6 @@
+//import api from "../api"; // Make sure the path points to your new api.js file
 import { useNavigate } from "react-router-dom";
+
 
 export default function Navbar() {
   const navigate = useNavigate();

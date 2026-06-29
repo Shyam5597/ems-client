@@ -36,22 +36,16 @@ interface User {
   attendance: any[];
 }
 
-// ============================================================================
-// TOAST NOTIFICATION
-// ============================================================================
 interface Toast { message: string; type: "success" | "error" | "info"; }
 
-// ============================================================================
-// OTP MODAL PROPS
-// ============================================================================
 type OtpFlowType = "email" | "phone" | "password";
 
 interface OtpModalState {
   open: boolean;
   flow: OtpFlowType | null;
   step: "input" | "otp" | "verified";
-  newValue: string;         // new email / phone / (unused for password)
-  newPassword: string;      // used only for password flow
+  newValue: string;
+  newPassword: string;
   confirmPassword: string;
   otp: string;
   generatedOtp: string;
@@ -93,7 +87,6 @@ export default function Profile() {
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // OTP Modal State — single unified state machine
   const [modal, setModal] = useState<OtpModalState>({
     open: false,
     flow: null,
@@ -122,7 +115,7 @@ export default function Profile() {
       const myId = currentUser?.id || currentUser?._id;
       if (!myId || !token) return;
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
+        const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -137,7 +130,7 @@ export default function Profile() {
   }, [token]);
 
   // ============================================================================
-  // TOAST HELPER
+  // TOAST
   // ============================================================================
   const showToast = (message: string, type: Toast["type"] = "success") => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -146,23 +139,15 @@ export default function Profile() {
   };
 
   // ============================================================================
-  // OPEN MODAL FOR A FLOW
+  // MODAL OPEN / CLOSE
   // ============================================================================
   const openModal = (flow: OtpFlowType) => {
     setShowNewPwd(false);
     setShowConfirmPwd(false);
     setModal({
-      open: true,
-      flow,
-      step: "input",
-      newValue: "",
-      newPassword: "",
-      confirmPassword: "",
-      otp: "",
-      generatedOtp: "",
-      loading: false,
-      error: "",
-      countdown: 0,
+      open: true, flow, step: "input",
+      newValue: "", newPassword: "", confirmPassword: "",
+      otp: "", generatedOtp: "", loading: false, error: "", countdown: 0,
     });
   };
 
@@ -172,31 +157,25 @@ export default function Profile() {
   };
 
   // ============================================================================
-  // COUNTDOWN TIMER
+  // COUNTDOWN
   // ============================================================================
   const startCountdown = (seconds = 60) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setModal(prev => ({ ...prev, countdown: seconds }));
     countdownRef.current = setInterval(() => {
       setModal(prev => {
-        if (prev.countdown <= 1) {
-          clearInterval(countdownRef.current!);
-          return { ...prev, countdown: 0 };
-        }
+        if (prev.countdown <= 1) { clearInterval(countdownRef.current!); return { ...prev, countdown: 0 }; }
         return { ...prev, countdown: prev.countdown - 1 };
       });
     }, 1000);
   };
 
   // ============================================================================
-  // GENERATE & "SEND" OTP  (in production: call backend /api/send-otp)
-  // Here we simulate OTP generation and log it to console for development.
-  // Replace the fetch call below with your real backend OTP endpoint.
+  // SEND OTP
   // ============================================================================
   const sendOtp = async () => {
     setModal(prev => ({ ...prev, loading: true, error: "" }));
 
-    // Validate input first
     if (modal.flow === "email") {
       if (!modal.newValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(modal.newValue)) {
         setModal(prev => ({ ...prev, loading: false, error: "Please enter a valid email address." }));
@@ -223,24 +202,7 @@ export default function Profile() {
       }
     }
 
-    // Generate a 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // --------------------------------------------------------------------------
-    // PRODUCTION: Replace the block below with a real backend call:
-    //
-    // const target = modal.flow === "email" ? modal.newValue
-    //              : modal.flow === "phone" ? modal.newValue
-    //              : currentUser.email;  // send password-change OTP to current email
-    //
-    // await fetch("http://localhost:5000/api/send-otp", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    //   body: JSON.stringify({ target, otp, type: modal.flow })
-    // });
-    // --------------------------------------------------------------------------
-
-    // DEV: Simulate network delay and log OTP to console
     await new Promise(r => setTimeout(r, 800));
     console.log(`[DEV] OTP for ${modal.flow}: ${otp}`);
 
@@ -249,7 +211,7 @@ export default function Profile() {
 
     const destination = modal.flow === "password"
       ? `your registered email (${currentUser.email})`
-      : modal.flow === "email" ? modal.newValue : modal.newValue;
+      : modal.newValue;
     showToast(`OTP sent to ${destination}. (Check console in dev mode.)`, "info");
   };
 
@@ -266,7 +228,6 @@ export default function Profile() {
       return;
     }
 
-    // OTP correct — apply the change
     setModal(prev => ({ ...prev, loading: true, error: "" }));
     const myId = currentUser?.id || currentUser?._id;
 
@@ -276,7 +237,7 @@ export default function Profile() {
     if (modal.flow === "password") updatePayload = { password: modal.newPassword };
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${myId}`, {
+      const res = await fetch(`http://localhost:5000/api/users/${myId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(updatePayload),
@@ -289,7 +250,6 @@ export default function Profile() {
         localStorage.setItem("currentUser", JSON.stringify(updatedUser));
         setModal(prev => ({ ...prev, loading: false, step: "verified" }));
         if (countdownRef.current) clearInterval(countdownRef.current);
-
         const successMsg = modal.flow === "email" ? "Email updated successfully!"
           : modal.flow === "phone" ? "Mobile number updated successfully!"
           : "Password changed successfully!";
@@ -303,7 +263,7 @@ export default function Profile() {
   };
 
   // ============================================================================
-  // OTP INPUT — 6 individual boxes
+  // OTP INPUT HANDLERS
   // ============================================================================
   const handleOtpDigit = (value: string, index: number) => {
     if (!/^\d*$/.test(value)) return;
@@ -332,11 +292,10 @@ export default function Profile() {
     : "—";
 
   const attendanceCount = Array.isArray(currentUser.attendance) ? currentUser.attendance.length : 0;
-
   const pwdStrength = getPasswordStrength(modal.newPassword);
 
   // ============================================================================
-  // MODAL FLOW LABELS
+  // MODAL FLOW META
   // ============================================================================
   const flowMeta = {
     email: {
@@ -369,13 +328,12 @@ export default function Profile() {
   };
 
   // ============================================================================
-  // RENDER MODAL INNER CONTENT
+  // MODAL BODY RENDERER
   // ============================================================================
   const renderModalBody = () => {
     if (!modal.flow) return null;
     const meta = flowMeta[modal.flow];
 
-    // ── STEP 1: INPUT ──
     if (modal.step === "input") {
       return (
         <div className="space-y-5">
@@ -398,11 +356,9 @@ export default function Profile() {
                 {modal.newPassword.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <div className="flex gap-1">
-                      <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${pwdStrength.score >= 1 ? pwdStrength.color : "bg-slate-200"}`}></div>
-                      <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${pwdStrength.score >= 2 ? pwdStrength.color : "bg-slate-200"}`}></div>
-                      <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${pwdStrength.score >= 3 ? pwdStrength.color : "bg-slate-200"}`}></div>
-                      <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${pwdStrength.score >= 4 ? pwdStrength.color : "bg-slate-200"}`}></div>
-                      <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${pwdStrength.score >= 5 ? pwdStrength.color : "bg-slate-200"}`}></div>
+                      {[1,2,3,4,5].map(n => (
+                        <div key={n} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${pwdStrength.score >= n ? pwdStrength.color : "bg-slate-200"}`}></div>
+                      ))}
                     </div>
                     <p className={`text-xs font-bold ${pwdStrength.score <= 1 ? "text-red-500" : pwdStrength.score <= 2 ? "text-orange-500" : pwdStrength.score <= 3 ? "text-yellow-600" : "text-green-600"}`}>
                       {pwdStrength.label}
@@ -410,7 +366,6 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-600 mb-1.5">Confirm New Password</label>
                 <div className="relative">
@@ -432,14 +387,12 @@ export default function Profile() {
                   <p className="text-xs text-green-600 font-bold mt-1 flex items-center gap-1"><IconCheck className="w-3 h-3" /> Passwords match</p>
                 )}
               </div>
-
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-500 font-medium space-y-1">
                 <p className="font-bold text-slate-600 mb-1">Password requirements:</p>
                 <p className={/[a-zA-Z].*[a-zA-Z].*[a-zA-Z].*[a-zA-Z]/.test(modal.newPassword) ? "text-green-600" : ""}>• At least 4 alphabets</p>
                 <p className={/\d/.test(modal.newPassword) ? "text-green-600" : ""}>• At least 1 number</p>
                 <p className={/[^a-zA-Z0-9\s]/.test(modal.newPassword) ? "text-green-600" : ""}>• At least 1 special character</p>
               </div>
-
               <p className="text-xs text-slate-400 font-medium">An OTP will be sent to <span className="font-bold text-slate-600">{currentUser.email}</span> to confirm this change.</p>
             </>
           ) : (
@@ -459,23 +412,18 @@ export default function Profile() {
               </p>
             </>
           )}
-
           {modal.error && <p className="text-sm text-red-600 font-bold bg-red-50 border border-red-100 p-3 rounded-xl">{modal.error}</p>}
-
           <button
             onClick={sendOtp}
             disabled={modal.loading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-3.5 rounded-xl font-bold transition cursor-pointer flex items-center justify-center gap-2"
           >
-            {modal.loading ? (
-              <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span> Sending OTP…</>
-            ) : "Send OTP"}
+            {modal.loading ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span> Sending OTP…</> : "Send OTP"}
           </button>
         </div>
       );
     }
 
-    // ── STEP 2: OTP ──
     if (modal.step === "otp") {
       const digits = modal.otp.split("").concat(Array(6).fill("")).slice(0, 6);
       return (
@@ -490,8 +438,6 @@ export default function Profile() {
             </p>
             <p className="text-xs text-slate-400 mt-1">(Check your browser console in dev mode)</p>
           </div>
-
-          {/* 6-box OTP input */}
           <div className="flex justify-center gap-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <input
@@ -507,31 +453,24 @@ export default function Profile() {
               />
             ))}
           </div>
-
           {modal.error && <p className="text-sm text-red-600 font-bold bg-red-50 border border-red-100 p-3 rounded-xl text-center">{modal.error}</p>}
-
           <button
             onClick={verifyOtp}
             disabled={modal.loading || modal.otp.length < 6}
             className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white py-3.5 rounded-xl font-bold transition cursor-pointer flex items-center justify-center gap-2"
           >
-            {modal.loading ? (
-              <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span> Verifying…</>
-            ) : <><IconCheck /> Verify & Save</>}
+            {modal.loading ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span> Verifying…</> : <><IconCheck /> Verify & Save</>}
           </button>
-
           <div className="text-center">
-            {modal.countdown > 0 ? (
-              <p className="text-xs text-slate-400 font-medium">Resend OTP in <span className="font-bold text-blue-600">{modal.countdown}s</span></p>
-            ) : (
-              <button onClick={sendOtp} className="text-sm font-bold text-blue-600 hover:underline cursor-pointer transition">Resend OTP</button>
-            )}
+            {modal.countdown > 0
+              ? <p className="text-xs text-slate-400 font-medium">Resend OTP in <span className="font-bold text-blue-600">{modal.countdown}s</span></p>
+              : <button onClick={sendOtp} className="text-sm font-bold text-blue-600 hover:underline cursor-pointer transition">Resend OTP</button>
+            }
           </div>
         </div>
       );
     }
 
-    // ── STEP 3: VERIFIED ──
     if (modal.step === "verified") {
       const successMsg = modal.flow === "email" ? "Email address updated!"
         : modal.flow === "phone" ? "Mobile number updated!"
@@ -539,7 +478,6 @@ export default function Profile() {
       const subMsg = modal.flow === "email" ? `Your new email is ${modal.newValue}`
         : modal.flow === "phone" ? `Your new number is ${modal.newValue}`
         : "Use your new password on next login.";
-
       return (
         <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
           <div className="w-20 h-20 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center animate-fadeIn">
@@ -547,12 +485,7 @@ export default function Profile() {
           </div>
           <h3 className="text-2xl font-black text-slate-800">{successMsg}</h3>
           <p className="text-slate-500 font-medium">{subMsg}</p>
-          <button
-            onClick={closeModal}
-            className="mt-4 bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition cursor-pointer"
-          >
-            Done
-          </button>
+          <button onClick={closeModal} className="mt-4 bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-700 transition cursor-pointer">Done</button>
         </div>
       );
     }
@@ -583,7 +516,6 @@ export default function Profile() {
       {modal.open && modal.flow && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
-            {/* Modal header */}
             <div className={`bg-gradient-to-br ${flowMeta[modal.flow].gradient} p-6 text-white relative`}>
               <button onClick={closeModal} className="absolute top-4 right-4 text-white/60 hover:text-white cursor-pointer transition">
                 <IconClose />
@@ -601,8 +533,6 @@ export default function Profile() {
                   </p>
                 </div>
               </div>
-
-              {/* Step indicator */}
               <div className="flex gap-2 mt-4">
                 {["input", "otp", "verified"].map((s, i) => (
                   <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${
@@ -613,38 +543,25 @@ export default function Profile() {
                 ))}
               </div>
             </div>
-
-            {/* Modal body */}
-            <div className="p-6">
-              {renderModalBody()}
-            </div>
+            <div className="p-6">{renderModalBody()}</div>
           </div>
         </div>
       )}
 
-      {/* ── STICKY HEADER ── */}
+      {/* ── STICKY HEADER — no status badge ── */}
       <div className="sticky top-0 z-30 bg-slate-50 -mx-4 md:-mx-8 px-4 md:px-8 pt-6 pb-4 border-b border-slate-200 mb-8 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">My Profile</h1>
-            <p className="text-slate-500 font-medium mt-1">Manage your personal information and account security.</p>
-          </div>
-          <div className="flex-shrink-0">
-            <span className={`px-4 py-2 rounded-full text-sm font-bold ${currentUser.status === "Active" || !currentUser.status ? "bg-green-100 text-green-700 border border-green-200" : "bg-red-100 text-red-700 border border-red-200"}`}>
-              ● {currentUser.status || "Active"}
-            </span>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">My Profile</h1>
+          <p className="text-slate-500 font-medium mt-1">Manage your personal information and account security.</p>
         </div>
       </div>
 
       {/* ── HERO BANNER ── */}
       <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-900 rounded-3xl p-8 mb-8 text-white relative overflow-hidden shadow-xl">
-        {/* Decorative circles */}
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-indigo-500/10 -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-blue-500/10 translate-y-1/2 -translate-x-1/4 pointer-events-none"></div>
 
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
-          {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-indigo-900/40 select-none">
               {initials}
@@ -654,7 +571,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Info */}
           <div className="flex-grow">
             <h2 className="text-3xl font-black text-white leading-tight">{currentUser.name || "—"}</h2>
             <p className="text-indigo-200 font-semibold mt-1">{currentUser.designation || "—"} · {currentUser.department || "—"}</p>
@@ -679,7 +595,7 @@ export default function Profile() {
       {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ── LEFT: PERSONAL INFO ── */}
+        {/* LEFT: PERSONAL INFO */}
         <div className="lg:col-span-2 space-y-6">
 
           {/* Personal Information Card */}
@@ -691,43 +607,30 @@ export default function Profile() {
             </div>
             <div className="p-8">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-
-                {/* Name */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Full Name</p>
                   <p className="text-slate-800 font-bold text-base">{currentUser.name || "—"}</p>
                 </div>
-
-                {/* Role */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Role</p>
                   <p className="text-slate-800 font-bold text-base">{currentUser.role || "—"}</p>
                 </div>
-
-                {/* Designation */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Designation</p>
                   <p className="text-slate-800 font-bold text-base">{currentUser.designation || "—"}</p>
                 </div>
-
-                {/* Department */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><IconBuilding className="w-3 h-3" /> Department</p>
                   <p className="text-slate-800 font-bold text-base">{currentUser.department || "—"}</p>
                 </div>
-
-                {/* Employee ID */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Employee ID</p>
                   <p className="text-slate-600 font-bold text-base font-mono">{currentUser.id || currentUser._id || "—"}</p>
                 </div>
-
-                {/* Joined */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Date Joined</p>
                   <p className="text-slate-800 font-bold text-base">{joinDate}</p>
                 </div>
-
               </div>
             </div>
           </div>
@@ -740,9 +643,8 @@ export default function Profile() {
               </h2>
             </div>
             <div className="p-8 space-y-4">
-
-              {/* Email row */}
-              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100 group">
+              {/* Email */}
+              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                     <IconMail className="text-blue-600 w-4 h-4" />
@@ -760,8 +662,8 @@ export default function Profile() {
                 </button>
               </div>
 
-              {/* Phone row */}
-              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100 group">
+              {/* Phone */}
+              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
                     <IconPhone className="text-violet-600 w-4 h-4" />
@@ -778,12 +680,11 @@ export default function Profile() {
                   <IconEdit /> {currentUser.phone ? "Change" : "Add"}
                 </button>
               </div>
-
             </div>
           </div>
         </div>
 
-        {/* ── RIGHT: SECURITY ── */}
+        {/* RIGHT: SECURITY */}
         <div className="space-y-6">
 
           {/* Account Security Card */}
@@ -794,8 +695,6 @@ export default function Profile() {
               </h2>
             </div>
             <div className="p-6 space-y-4">
-
-              {/* Password row */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
@@ -814,7 +713,6 @@ export default function Profile() {
                 </button>
               </div>
 
-              {/* Security tips */}
               <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
                 <p className="text-xs font-black text-blue-700 uppercase tracking-wider mb-2">Security Tips</p>
                 <ul className="text-xs text-blue-600 font-medium space-y-1.5">
@@ -827,7 +725,7 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Activity Summary Card */}
+          {/* Activity Summary Card — no Account Status row */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100">
               <h2 className="text-lg font-black text-slate-800">Activity Summary</h2>
@@ -837,7 +735,7 @@ export default function Profile() {
                 <span className="text-sm font-bold text-slate-500">Total Punches</span>
                 <span className="font-black text-slate-800">{attendanceCount}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-50">
+              <div className="flex justify-between items-center py-2">
                 <span className="text-sm font-bold text-slate-500">This Month</span>
                 <span className="font-black text-slate-800">
                   {Array.isArray(currentUser.attendance)
@@ -850,18 +748,11 @@ export default function Profile() {
                     : 0}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm font-bold text-slate-500">Account Status</span>
-                <span className="text-xs font-black text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                  {currentUser.status || "Active"}
-                </span>
-              </div>
             </div>
           </div>
 
         </div>
       </div>
     </MainLayout>
-    
   );
 }

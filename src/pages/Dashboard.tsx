@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+
+import { Link, useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import StatsCard from "../components/StatsCard";
 import { FaUsers, FaUserCheck, FaUserTimes, FaFingerprint, FaClock, FaCheckCircle, FaExclamationCircle, FaUserClock, FaFileInvoice, FaChartLine, FaChartPie, FaCalendarDay, FaTimes, FaIdBadge, FaBuilding, FaMapMarkerAlt, FaHome, FaCheck, FaBan, FaCalendarAlt, FaUndo, FaExclamationTriangle } from "react-icons/fa";
@@ -35,6 +36,21 @@ export default function Dashboard() {
 
   const [currentUser, setCurrentUser] = useState<User>(getSafeUser);
   const token = localStorage.getItem("token") || "";
+
+  const navigate = useNavigate();
+
+  // Safety net: if somehow rendered without a real authenticated user
+  // (e.g. corrupted/missing localStorage data), force back to login
+  // instead of silently showing an empty/dummy dashboard.
+  useEffect(() => {
+    const myId = currentUser?.id || currentUser?._id;
+    if (!token || !myId) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("currentUser");
+      navigate("/login", { replace: true });
+    }
+  }, [token, currentUser, navigate]);
 
   const isAdmin = currentUser?.role === "Admin" || currentUser?.role === "MD/CEO";
   const isSuperAdmin = currentUser?.role === "MD/CEO" || String(currentUser?.designation || "").toLowerCase().includes("ceo") || String(currentUser?.designation || "").toLowerCase().includes("md");

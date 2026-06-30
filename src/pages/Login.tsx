@@ -1,4 +1,4 @@
-import  { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { HiOutlineMail, HiOutlineLockClosed, HiOutlineShieldCheck } from "react-icons/hi";
@@ -16,6 +16,18 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // IMPORTANT: every time the Login page mounts (including right after logout),
+  // wipe any leftover auth data and reset the form fields. This prevents the
+  // "dummy data" / stale form values from ever surviving a logout.
+  useEffect(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("currentUser");
+    setEmail("");
+    setPassword("");
+    setFieldErrors({});
+  }, []);
 
   const clearError = (field: keyof FieldErrors) =>
     setFieldErrors(prev => ({ ...prev, [field]: undefined }));
@@ -63,7 +75,7 @@ export default function Login() {
         localStorage.setItem("token", data.token);
         localStorage.setItem("currentUser", JSON.stringify(data.user));
         localStorage.setItem("isLoggedIn", "true");
-        navigate("/");
+        navigate("/", { replace: true });
       } else {
         const msg: string = data.message || "Invalid credentials.";
         if (msg.toLowerCase().includes("email") || msg.toLowerCase().includes("account") || msg.toLowerCase().includes("user")) {
@@ -85,7 +97,6 @@ export default function Login() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
 
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-600/30">
             <span className="text-white font-extrabold text-sm tracking-tight">EM</span>
@@ -94,10 +105,8 @@ export default function Login() {
           <p className="text-slate-500 text-sm mt-1">Enter your work credentials to continue.</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 space-y-5">
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Work Email</label>
             <div className={`flex items-center gap-3 border rounded-xl px-4 py-3 transition-all ${
@@ -113,7 +122,7 @@ export default function Login() {
                 onChange={(e) => { setEmail(e.target.value); clearError("email"); }}
                 onKeyDown={handleEmailKeyDown}
                 className="flex-1 outline-none bg-transparent text-slate-800 placeholder-slate-400 text-sm"
-                autoComplete="email"
+                autoComplete="off"
               />
             </div>
             {fieldErrors.email && (
@@ -124,7 +133,6 @@ export default function Login() {
             )}
           </div>
 
-          {/* Password */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-medium text-slate-700">Password</label>
@@ -144,7 +152,7 @@ export default function Login() {
                 onChange={(e) => { setPassword(e.target.value); clearError("password"); }}
                 onKeyDown={handlePasswordKeyDown}
                 className="flex-1 outline-none bg-transparent text-slate-800 placeholder-slate-400 text-sm"
-                autoComplete="current-password"
+                autoComplete="off"
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0">
                 {showPassword ? <FaEyeSlash size={15} /> : <FaEye size={15} />}
@@ -158,7 +166,6 @@ export default function Login() {
             )}
           </div>
 
-          {/* Submit */}
           <button
             onClick={handleLogin}
             disabled={isLoading}

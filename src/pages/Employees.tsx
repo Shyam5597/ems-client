@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import MainLayout from "../layouts/MainLayout";
 import AddEmployeeModal from "../components/AddEmployeeModal";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // ============================================================================
 // SVG ICONS (Professional UI)
@@ -13,6 +15,7 @@ const IconClose = () => <svg className="w-5 h-5" fill="none" stroke="currentColo
 const IconWarning = () => <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const IconSort = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" /></svg>;
 const IconCalendar = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+const IconFilePdf = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-6 4h6m2 5H7a2 2 0 01-2-2V4a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V20a2 2 0 01-2 2z" /></svg>;
 
 // ============================================================================
 // TYPES & CORPORATE CONSTANTS
@@ -53,13 +56,21 @@ const getDateStatus = (dateStr: string, userCreatedAt: string, attendance: Atten
   return "Absent";
 };
 
+const StatusBadge = ({ status }: { status: string }) => {
+  if (status.includes("Present")) return <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">Present</span>;
+  if (status === "Weekend OT") return <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">Wknd OT</span>;
+  if (status === "On Leave") return <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">On Leave</span>;
+  if (status === "Absent") return <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">Absent</span>;
+  return <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">{status}</span>;
+};
+
 // ============================================================================
-// PAYROLL DATE RANGE PICKER MODAL
+// PAYROLL DATE RANGE PICKER MODAL (now drives PDF export)
 // ============================================================================
-const PayrollDateRangeModal = ({ employee, onClose, onExport, token }: { employee: User, onClose: () => void, onExport: (startDate: string, endDate: string) => void, token: string }) => {
+const PayrollDateRangeModal = ({ employee, onClose, onExport }: { employee: User, onClose: () => void, onExport: (startDate: string, endDate: string) => void }) => {
   const today = getLocalDateStr();
   const oneYearAgo = getLocalDateStr(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000));
-  
+
   const [startDate, setStartDate] = useState(oneYearAgo);
   const [endDate, setEndDate] = useState(today);
   const [isExporting, setIsExporting] = useState(false);
@@ -89,11 +100,11 @@ const PayrollDateRangeModal = ({ employee, onClose, onExport, token }: { employe
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center bg-slate-50 border-b border-slate-200 p-6">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <IconCalendar />
-            Export Payroll Report
+            Generate Payroll PDF
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition"><IconClose /></button>
         </div>
@@ -146,20 +157,20 @@ const PayrollDateRangeModal = ({ employee, onClose, onExport, token }: { employe
             </div>
           )}
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-            <button 
-              type="button" 
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-3">
+            <button
+              type="button"
               onClick={onClose}
               disabled={isExporting}
               className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 transition shadow-sm disabled:opacity-50"
             >
               Cancel
             </button>
-            <button 
+            <button
               type="button"
               onClick={handleExport}
               disabled={isExporting || !startDate || !endDate}
-              className="px-5 py-2.5 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 transition shadow-sm disabled:opacity-50 flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isExporting ? (
                 <>
@@ -167,12 +178,12 @@ const PayrollDateRangeModal = ({ employee, onClose, onExport, token }: { employe
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                   </svg>
-                  Exporting…
+                  Generating…
                 </>
               ) : (
                 <>
-                  <IconDownload />
-                  Export Payroll
+                  <IconFilePdf />
+                  Download PDF
                 </>
               )}
             </button>
@@ -241,7 +252,7 @@ const DynamicEditModal = ({ employee, onClose, onUpdate, token, canEdit }: { emp
             <p className="text-slate-800 font-bold mb-2">You don't have permission to edit this employee.</p>
             <p className="text-sm text-slate-600 mb-6">Only administrators of the <span className="font-bold">{employee.department}</span> department can edit employees in their department.</p>
             <div className="flex justify-end">
-              <button 
+              <button
                 onClick={onClose}
                 className="px-5 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-sm"
               >
@@ -256,7 +267,7 @@ const DynamicEditModal = ({ employee, onClose, onUpdate, token, canEdit }: { emp
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center bg-slate-50 border-b border-slate-200 p-6">
           <h2 className="text-xl font-bold text-slate-800">Update Assignment</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition"><IconClose /></button>
@@ -266,7 +277,7 @@ const DynamicEditModal = ({ employee, onClose, onUpdate, token, canEdit }: { emp
           {/* LOCKED IDENTITY FIELDS */}
           <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Locked Identity Data</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Full Name</label>
                 <input type="text" value={employee.name} readOnly className="w-full bg-slate-200 border border-slate-300 text-slate-500 p-2.5 rounded-lg cursor-not-allowed text-sm font-medium" />
@@ -275,7 +286,7 @@ const DynamicEditModal = ({ employee, onClose, onUpdate, token, canEdit }: { emp
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Employee ID</label>
                 <input type="text" value={employee.id} readOnly className="w-full bg-slate-200 border border-slate-300 text-slate-500 p-2.5 rounded-lg cursor-not-allowed text-sm font-medium" />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Email Address</label>
                 <input type="text" value={employee.email} readOnly className="w-full bg-slate-200 border border-slate-300 text-slate-500 p-2.5 rounded-lg cursor-not-allowed text-sm font-medium" />
               </div>
@@ -301,7 +312,7 @@ const DynamicEditModal = ({ employee, onClose, onUpdate, token, canEdit }: { emp
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-3">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 transition shadow-sm">Cancel</button>
             <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm disabled:opacity-50">
               {isSubmitting ? "Saving..." : "Save Changes"}
@@ -338,7 +349,7 @@ export default function Employees() {
 
   const token = localStorage.getItem("token") || "";
 
-  // Derive month/year purely from the snapshot date for legacy single-month export
+  // Derive month/year purely from the snapshot date for legacy single-month filtering
   const snapshotDateObj = new Date(snapshotDate + "T00:00:00");
   const exportMonth = snapshotDateObj.getMonth();
   const exportYear = snapshotDateObj.getFullYear();
@@ -373,73 +384,96 @@ export default function Employees() {
   };
 
   // ============================================================================
-  // PAYROLL EXPORT — DATE RANGE BASED
+  // PAYROLL EXPORT — PROFESSIONAL PDF (date-range based)
   // ============================================================================
-  const exportPayrollCSV = (emp: User, startDateStr: string, endDateStr: string) => {
+  const exportPayrollPDF = (emp: User, startDateStr: string, endDateStr: string) => {
     const startDate = new Date(startDateStr + "T00:00:00");
     const endDate = new Date(endDateStr + "T00:00:00");
     const joinDate = new Date(emp.createdAt || Date.now());
     joinDate.setHours(0, 0, 0, 0);
 
-    // Check if employee had not joined by the end date
-    if (joinDate > endDate) {
-      const joinDateFormatted = joinDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
-      const content = [
-        `"PAYROLL REPORT — ${startDateStr} to ${endDateStr}"`,
-        ``,
-        `"NOTICE: Record Not Available"`,
-        ``,
-        `"Employee ID:",${emp.id}`,
-        `"Employee Name:",${emp.name}`,
-        `"Department:",${emp.department}`,
-        `"Designation:",${emp.designation}`,
-        ``,
-        `"============================================================"`,
-        `"This report could not be generated for the period:"`,
-        `"${startDateStr} to ${endDateStr}"`,
-        ``,
-        `"REASON: ${emp.name} had not yet joined the organisation`,
-        `during this time period."`,
-        ``,
-        `"Date of Joining:",${joinDateFormatted}`,
-        ``,
-        `"Please select a payroll period on or after the employee's`,
-        `date of joining to generate a valid payroll report."`,
-        `"============================================================"`,
-      ].join("\n");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 40;
 
-      const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.setAttribute("download", `Payroll_${emp.id}_${startDateStr}_to_${endDateStr}_NOT_AVAILABLE.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    // ── Header ──────────────────────────────────────────────
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.rect(0, 0, pageWidth, 70, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("EmpManage", margin, 32);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Official Payroll & Attendance Report", margin, 48);
+
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`, pageWidth - margin, 32, { align: "right" });
+    doc.text(`Period: ${startDateStr} to ${endDateStr}`, pageWidth - margin, 48, { align: "right" });
+
+    let y = 95;
+
+    // ── Case: employee had not joined yet during this period ──
+    if (joinDate > endDate) {
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("Report Unavailable", margin, y);
+      y += 22;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Employee: ${emp.name}  (${emp.id})`, margin, y); y += 16;
+      doc.text(`Department: ${emp.department}  •  Designation: ${emp.designation}`, margin, y); y += 16;
+      doc.text(`Date of Joining: ${joinDate.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}`, margin, y); y += 24;
+
+      doc.setTextColor(150, 30, 30);
+      const msg = doc.splitTextToSize(
+        `${emp.name} had not yet joined the organisation during the selected period (${startDateStr} to ${endDateStr}). Please select a period on or after the date of joining to generate a valid report.`,
+        pageWidth - margin * 2
+      );
+      doc.text(msg, margin, y);
+
+      doc.save(`Payroll_${emp.id}_${startDateStr}_to_${endDateStr}_NOT_AVAILABLE.pdf`);
       return;
     }
 
-    let presentDates: string[] = [];
-    let absentDates: string[] = [];
-    let leaveDates: string[] = [];
-    let otDates: string[] = [];
-    let futureDates: string[] = [];
+    // ── Employee identity block ──────────────────────────────
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Employee Details", margin, y);
+    y += 8;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 18;
 
-    const dailyRows: string[] = [];
-    dailyRows.push(`"DATE","DAY","STATUS","CHECK IN","CHECK OUT"`);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const col2X = pageWidth / 2;
+    doc.text(`Name: ${emp.name}`, margin, y);
+    doc.text(`Employee ID: ${emp.id}`, col2X, y);
+    y += 16;
+    doc.text(`Department: ${emp.department}`, margin, y);
+    doc.text(`Designation: ${emp.designation}`, col2X, y);
+    y += 16;
+    doc.text(`Email: ${emp.email}`, margin, y);
+    doc.text(`Phone: ${emp.phone || "N/A"}`, col2X, y);
+    y += 28;
 
-    // Iterate through each day in the date range
+    // ── Build daily records + tallies ────────────────────────
+    let presentCount = 0, absentCount = 0, leaveCount = 0, otCount = 0;
+    const dailyRows: (string | number)[][] = [];
+    const today = new Date(getLocalDateStr());
+
     for (let loopDate = new Date(startDate); loopDate <= endDate; loopDate.setDate(loopDate.getDate() + 1)) {
       const isoDate = getLocalDateStr(loopDate);
-      const dayName = loopDate.toLocaleDateString('en-US', { weekday: 'long' });
-      const dayNumber = loopDate.getDate().toString();
-
-      // Skip days before employee joined
+      const dayName = loopDate.toLocaleDateString("en-US", { weekday: "long" });
       if (loopDate < joinDate) continue;
 
       const isWeekend = loopDate.getDay() === 0 || loopDate.getDay() === 6;
       const record = (emp.attendance || []).find(a => a.date === isoDate);
       const safeStatus = String(record?.status || "");
-      const today = new Date(getLocalDateStr());
 
       let finalStatus = "Absent";
       let checkIn = "--:--";
@@ -447,84 +481,120 @@ export default function Employees() {
 
       if (record) {
         if (safeStatus.includes("Present")) {
-          if (isWeekend) { finalStatus = "Weekend OT"; otDates.push(dayNumber); }
-          else { finalStatus = "Present"; presentDates.push(dayNumber); }
-          checkIn = record.checkIn;
+          if (isWeekend) { finalStatus = "Weekend OT"; otCount++; }
+          else { finalStatus = "Present"; presentCount++; }
+          checkIn = record.checkIn || "--:--";
           checkOut = record.checkOut || "Active";
         } else if (safeStatus === "On Leave") {
           finalStatus = "Approved Leave";
-          leaveDates.push(dayNumber);
+          leaveCount++;
         }
+      } else if (loopDate > today) {
+        continue; // future dates are not part of an official record
+      } else if (isWeekend) {
+        finalStatus = "Weekend";
       } else {
-        if (loopDate > today) { finalStatus = "Future"; futureDates.push(dayNumber); }
-        else if (isWeekend) { finalStatus = "Weekend (No Punch)"; }
-        else { finalStatus = "Absent"; absentDates.push(dayNumber); }
+        finalStatus = "Absent";
+        absentCount++;
       }
 
-      dailyRows.push(`"${isoDate}","${dayName}","${finalStatus}","${checkIn}","${checkOut}"`);
+      dailyRows.push([isoDate, dayName, finalStatus, checkIn, checkOut]);
     }
 
-    const totalPayableDays = presentDates.length + leaveDates.length + otDates.length;
+    const totalPayableDays = presentCount + leaveCount + otCount;
 
-    const csvContent = [
-      `"PAYROLL REPORT FOR ${startDateStr} TO ${endDateStr}"`,
-      `"EMPLOYEE ID:",${emp.id}`,
-      `"EMPLOYEE NAME:",${emp.name}`,
-      `"DEPARTMENT:",${emp.department}`,
-      `"DESIGNATION:",${emp.designation}`,
-      `""`,
-      `"REPORT PERIOD:",From ${startDateStr} to ${endDateStr}`,
-      ``,
-      `"============== MONTHLY SUMMARY =============="`,
-      `"Total Standard Days Present:",${presentDates.length}`,
-      `"Total Days Absent:",${absentDates.length}`,
-      `"Total Approved Leaves:",${leaveDates.length}`,
-      `"Total Weekend OT Days:",${otDates.length}`,
-      `"Total Future Days:",${futureDates.length}`,
-      `"TOTAL PAYABLE DAYS (Present + Leave + OT):",${totalPayableDays}`,
-      ``,
-      `"============== SPECIFIC DATES LOG =============="`,
-      `"Standard Present Dates:",${presentDates.join(", ") || "None"}`,
-      `"Absent Dates:",${absentDates.join(", ") || "None"}`,
-      `"Approved Leave Dates:",${leaveDates.join(", ") || "None"}`,
-      `"Weekend OT Dates:",${otDates.join(", ") || "None"}`,
-      `"Future Dates (No Data):",${futureDates.join(", ") || "None"}`,
-      ``,
-      `"============== DAILY PUNCH RECORD =============="`,
-      ...dailyRows
-    ].join("\n");
+    // ── Summary box ───────────────────────────────────────────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Attendance Summary", margin, y);
+    y += 8;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 14;
 
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `Payroll_${emp.id}_${startDateStr}_to_${endDateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const summaryStats = [
+      ["Present", String(presentCount)],
+      ["Absent", String(absentCount)],
+      ["Approved Leave", String(leaveCount)],
+      ["Weekend OT", String(otCount)],
+      ["Total Payable Days", String(totalPayableDays)],
+    ];
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      body: [summaryStats.map(s => s[0]), summaryStats.map(s => s[1])],
+      theme: "grid",
+      styles: { fontSize: 9, halign: "center", cellPadding: 6 },
+      bodyStyles: { textColor: [30, 41, 59] },
+      didParseCell: (data) => {
+        if (data.row.index === 0) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [241, 245, 249];
+        }
+        if (data.row.index === 1 && data.column.index === 4) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.textColor = [22, 101, 52];
+        }
+      },
+    });
+
+    // @ts-ignore — autoTable attaches this to the doc instance
+    y = doc.lastAutoTable.finalY + 28;
+
+    // ── Daily attendance table ───────────────────────────────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Daily Attendance Record", margin, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y + 6,
+      margin: { left: margin, right: margin },
+      head: [["Date", "Day", "Status", "Check In", "Check Out"]],
+      body: dailyRows,
+      theme: "striped",
+      headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 9, fontStyle: "bold" },
+      bodyStyles: { fontSize: 8.5, textColor: [51, 65, 85] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 2) {
+          const val = String(data.cell.raw);
+          if (val === "Present") data.cell.styles.textColor = [21, 128, 61];
+          else if (val === "Absent") data.cell.styles.textColor = [185, 28, 28];
+          else if (val === "Weekend OT") data.cell.styles.textColor = [161, 98, 7];
+          else if (val === "Approved Leave") data.cell.styles.textColor = [109, 40, 217];
+        }
+      },
+      didDrawPage: (data) => {
+        // Footer on every page
+        const pageCount = doc.getNumberOfPages();
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `EmpManage Payroll Report  •  ${emp.name} (${emp.id})  •  Page ${data.pageNumber} of ${pageCount}`,
+          pageWidth / 2,
+          pageH - 20,
+          { align: "center" }
+        );
+      },
+    });
+
+    doc.save(`Payroll_${emp.id}_${startDateStr}_to_${endDateStr}.pdf`);
   };
 
   // ============================================================================
   // CHECK EDIT/DELETE PERMISSIONS — DEPARTMENT LEVEL
   // ============================================================================
   const canEditEmployee = (emp: User): boolean => {
-    // Super admin (MD/CEO) can edit anyone
     if (isSuperAdmin) return true;
-    
-    // Regular admin can only edit employees in their own department
     if (isAdmin) return emp.department === currentUser.department;
-    
-    // Non-admin cannot edit
     return false;
   };
 
   const canDeleteEmployee = (emp: User): boolean => {
-    // Super admin (MD/CEO) can delete anyone
     if (isSuperAdmin) return true;
-    
-    // Regular admin can only delete employees in their own department
     if (isAdmin) return emp.department === currentUser.department;
-    
-    // Non-admin cannot delete
     return false;
   };
 
@@ -540,7 +610,6 @@ export default function Employees() {
         user?.id?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDept = selectedDept === "All" ? true : user.department === selectedDept;
 
-      // Show only employees who joined by the end of the snapshot date's month
       const joinDate = new Date(user.createdAt || Date.now());
       const endOfSnapshotMonth = new Date(exportYear, exportMonth + 1, 0);
       const isJoinedByMonth = joinDate <= endOfSnapshotMonth;
@@ -566,7 +635,6 @@ export default function Employees() {
       }
     });
 
-  // Snapshot date display helpers
   const snapshotDayName = snapshotDateObj.toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
@@ -583,7 +651,7 @@ export default function Employees() {
             <div className="p-6">
               <p className="text-slate-800 font-bold mb-2">Are you sure you want to delete this employee?</p>
               <p className="text-sm text-slate-500 mb-8 leading-relaxed">This action is permanent. All historical attendance, payroll data, and leave records for <span className="font-bold text-slate-800">{employeeToDelete.name}</span> will be instantly erased from the database.</p>
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col sm:flex-row justify-end gap-3">
                 <button onClick={() => setEmployeeToDelete(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 transition shadow-sm cursor-pointer">No, Cancel</button>
                 <button onClick={() => executeDelete(employeeToDelete.id)} className="px-5 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-sm cursor-pointer">Yes, Delete</button>
               </div>
@@ -597,22 +665,19 @@ export default function Employees() {
         <PayrollDateRangeModal
           employee={payrollExportEmployee}
           onClose={() => setPayrollExportEmployee(null)}
-          onExport={(startDate, endDate) => exportPayrollCSV(payrollExportEmployee, startDate, endDate)}
-          token={token}
+          onExport={(startDate, endDate) => exportPayrollPDF(payrollExportEmployee, startDate, endDate)}
         />
       )}
 
       {/* STICKY HEADER & TOP CONTROL BAR */}
       <div className="sticky top-0 z-40 bg-slate-50 -mx-4 md:-mx-8 px-4 md:px-8 pt-6 pb-4 border-b border-slate-200 mb-8 shadow-sm">
         <div className="mb-4">
-          <h1 className="text-3xl font-bold text-slate-800">Employee Directory</h1>
-          <p className="text-slate-500 font-medium mt-1">Manage personnel, review daily statuses, and export payroll records.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">Employee Directory</h1>
+          <p className="text-slate-500 font-medium mt-1 text-sm sm:text-base">Manage personnel, review daily statuses, and download payroll reports.</p>
         </div>
 
-        {/* COMPACT SINGLE-ROW CONTROL BAR */}
         <div className="flex flex-wrap gap-3 items-center bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
 
-          {/* 1. Department Selector (Admin Only) */}
           {isAdmin && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Dept</span>
@@ -627,8 +692,7 @@ export default function Employees() {
             </div>
           )}
 
-          {/* 2. Daily Snapshot Calendar */}
-          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+          <div className="flex items-center gap-1.5 sm:border-l sm:border-slate-200 sm:pl-3">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Snapshot</span>
             <input
               type="date"
@@ -638,9 +702,8 @@ export default function Employees() {
             />
           </div>
 
-          {/* 3. Sort Option (replaces month/year selector) */}
           {isAdmin && (
-            <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+            <div className="flex items-center gap-1.5 sm:border-l sm:border-slate-200 sm:pl-3">
               <IconSort />
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Sort</span>
               <select
@@ -658,8 +721,7 @@ export default function Employees() {
             </div>
           )}
 
-          {/* 4. Search Bar */}
-          <div className="flex-grow flex items-center gap-2 border-l border-slate-200 pl-3 min-w-[160px]">
+          <div className="flex-grow flex items-center gap-2 sm:border-l sm:border-slate-200 sm:pl-3 min-w-[160px] basis-full sm:basis-auto">
             <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><IconSearch /></div>
               <input
@@ -672,11 +734,10 @@ export default function Employees() {
             </div>
           </div>
 
-          {/* 5. Add Employee Button (Admin) */}
           {isAdmin && (
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition shadow-md whitespace-nowrap cursor-pointer ml-auto"
+              className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition shadow-md whitespace-nowrap cursor-pointer w-full sm:w-auto sm:ml-auto"
             >
               + New Employee
             </button>
@@ -684,14 +745,14 @@ export default function Employees() {
         </div>
       </div>
 
-      {/* DATA TABLE — no horizontal scroll, compact columns */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full mb-12">
+      {/* ============================================================
+          DESKTOP TABLE — hidden on small screens, visible md and up
+      ============================================================ */}
+      <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full mb-12">
         <table className="w-full text-left table-fixed">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              {/* Date + Day stacked */}
               <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider w-[120px]">Date & Day</th>
-              {/* Name + EMP ID stacked in one column */}
               <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
               <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider w-[180px]">Contact</th>
               <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider w-[160px]">Role & Dept</th>
@@ -708,57 +769,43 @@ export default function Employees() {
               return (
                 <tr key={emp.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
 
-                  {/* DATE + DAY NAME */}
                   <td className="p-4 w-[120px]">
                     <span className="block font-bold text-slate-700 text-sm">{snapshotDate}</span>
                     <span className="block text-xs font-semibold text-blue-500 mt-0.5">{snapshotDayName}</span>
                   </td>
 
-                  {/* NAME + EMP ID stacked */}
                   <td className="p-4">
                     <span className="block font-bold text-slate-800 text-sm leading-tight">{emp.name}</span>
                     <span className="block text-xs font-semibold text-slate-400 mt-0.5">{emp.id}</span>
                   </td>
 
-                  {/* CONTACT */}
                   <td className="p-4 w-[180px]">
                     <span className="block text-xs text-slate-500 leading-tight break-all">{emp.email}</span>
                     <span className="block text-xs text-slate-400 mt-0.5">{isAdmin ? emp.phone : maskPhone(emp.phone)}</span>
                   </td>
 
-                  {/* ROLE & DEPT */}
                   <td className="p-4 w-[160px]">
                     <span className="block font-bold text-slate-700 text-xs leading-tight">{emp.designation}</span>
                     <span className="block text-xs text-slate-400 mt-0.5">{emp.department}</span>
                   </td>
 
-                  {/* DAILY STATUS BADGE */}
                   <td className="p-4 w-[110px]">
-                    {(() => {
-                      if (status.includes("Present")) return <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">Present</span>;
-                      if (status === "Weekend OT") return <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">Wknd OT</span>;
-                      if (status === "On Leave") return <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">On Leave</span>;
-                      if (status === "Absent") return <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">Absent</span>;
-                      return <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">{status}</span>;
-                    })()}
+                    <StatusBadge status={status} />
                   </td>
 
-                  {/* ACTIONS — all buttons in a tidy row */}
                   <td className="p-4 w-[200px]">
                     <div className="flex items-center justify-center gap-1.5 flex-wrap">
 
-                      {/* PAYROLL EXPORT */}
                       {(canEdit || emp.id === currentUser.id) && (
                         <button
                           onClick={() => setPayrollExportEmployee(emp)}
-                          title="Export Payroll (Date Range)"
-                          className="flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white hover:border-green-600 transition shadow-sm cursor-pointer whitespace-nowrap"
+                          title="Download Payroll PDF (Date Range)"
+                          className="flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white hover:border-red-600 transition shadow-sm cursor-pointer whitespace-nowrap"
                         >
-                          <IconDownload /> Payroll
+                          <IconDownload /> Payroll PDF
                         </button>
                       )}
 
-                      {/* EDIT BUTTON */}
                       {canEdit && (
                         <button
                           onClick={() => setEditEmployee(emp)}
@@ -768,7 +815,6 @@ export default function Employees() {
                         </button>
                       )}
 
-                      {/* EDIT BUTTON (DISABLED if no permission) */}
                       {isAdmin && !canEdit && (
                         <button
                           onClick={() => setEditEmployee(emp)}
@@ -779,7 +825,6 @@ export default function Employees() {
                         </button>
                       )}
 
-                      {/* DELETE BUTTON */}
                       {canDelete && (
                         <button
                           onClick={() => setEmployeeToDelete(emp)}
@@ -790,7 +835,6 @@ export default function Employees() {
                         </button>
                       )}
 
-                      {/* DELETE BUTTON (DISABLED if no permission) */}
                       {isAdmin && !canDelete && (
                         <button
                           className="flex items-center gap-1 bg-slate-100 border border-slate-300 text-slate-400 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-not-allowed"
@@ -819,6 +863,114 @@ export default function Employees() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* ============================================================
+          MOBILE CARD LIST — visible only below md breakpoint
+      ============================================================ */}
+      <div className="md:hidden space-y-4 mb-12">
+        {filteredUsers.length === 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-10 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-100 mb-4">
+              <IconSearch />
+            </div>
+            <h3 className="text-base font-bold text-slate-700">No records found</h3>
+            <p className="text-slate-500 font-medium text-sm mt-1">Adjust your search or date filters.</p>
+          </div>
+        )}
+
+        {filteredUsers.map((emp) => {
+          const status = getDateStatus(snapshotDate, emp.createdAt, emp.attendance || []);
+          const canEdit = canEditEmployee(emp);
+          const canDelete = canDeleteEmployee(emp);
+
+          return (
+            <div key={emp.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+
+              <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5 border-b border-slate-100">
+                <div>
+                  <span className="block text-xs font-bold text-slate-600">{snapshotDate}</span>
+                  <span className="block text-[11px] font-semibold text-blue-500">{snapshotDayName}</span>
+                </div>
+                <StatusBadge status={status} />
+              </div>
+
+              <div className="p-4 space-y-3">
+                <div>
+                  <p className="font-bold text-slate-800 text-base leading-tight">{emp.name}</p>
+                  <p className="text-xs font-semibold text-slate-400 mt-0.5">{emp.id}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Email</p>
+                    <p className="text-slate-600 text-xs break-all">{emp.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Phone</p>
+                    <p className="text-slate-600 text-xs">{isAdmin ? emp.phone : maskPhone(emp.phone)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Designation</p>
+                    <p className="text-slate-700 text-xs font-semibold">{emp.designation}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Department</p>
+                    <p className="text-slate-700 text-xs font-semibold">{emp.department}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                  {(canEdit || emp.id === currentUser.id) && (
+                    <button
+                      onClick={() => setPayrollExportEmployee(emp)}
+                      className="flex-1 min-w-[100px] flex items-center justify-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded-lg text-xs font-bold active:bg-red-600 active:text-white transition"
+                    >
+                      <IconDownload /> Payroll PDF
+                    </button>
+                  )}
+
+                  {canEdit && (
+                    <button
+                      onClick={() => setEditEmployee(emp)}
+                      className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 bg-white border border-slate-300 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold active:bg-slate-100 transition"
+                    >
+                      <IconEdit /> Edit
+                    </button>
+                  )}
+
+                  {isAdmin && !canEdit && (
+                    <button
+                      onClick={() => setEditEmployee(emp)}
+                      className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 bg-slate-100 border border-slate-300 text-slate-400 px-3 py-2 rounded-lg text-xs font-bold"
+                    >
+                      <IconEdit /> Edit
+                    </button>
+                  )}
+
+                  {canDelete && (
+                    <button
+                      onClick={() => setEmployeeToDelete(emp)}
+                      className="flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-100 px-3 py-2 rounded-lg text-xs font-bold active:bg-red-600 active:text-white transition"
+                      title="Delete Employee"
+                    >
+                      <IconTrash />
+                    </button>
+                  )}
+
+                  {isAdmin && !canDelete && (
+                    <button
+                      className="flex items-center justify-center gap-1.5 bg-slate-100 border border-slate-300 text-slate-400 px-3 py-2 rounded-lg text-xs font-bold"
+                      title="Only admins from this department can delete this employee"
+                    >
+                      <IconTrash />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* MODALS */}

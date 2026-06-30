@@ -1,4 +1,4 @@
-import   { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import {
@@ -30,6 +30,29 @@ const roleData: Record<string, Record<string, string[]>> = {
 };
 
 type FieldErrors = Partial<Record<string, string>>;
+
+// Defined OUTSIDE the Register component so it's created once and never
+// recreated on re-render. (Defining it inside the component caused every
+// keystroke to remount the input, making fields lose focus after 1 letter.)
+const InputWrapper = ({
+  field,
+  fieldErrors,
+  children,
+}: {
+  field: string;
+  fieldErrors: FieldErrors;
+  children: React.ReactNode;
+}) => (
+  <div>
+    {children}
+    {fieldErrors[field] && (
+      <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+        <span className="w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold flex-shrink-0">!</span>
+        {fieldErrors[field]}
+      </p>
+    )}
+  </div>
+);
 
 export default function Register() {
   const navigate = useNavigate();
@@ -127,13 +150,15 @@ export default function Register() {
   };
 
   const handleRegister = async () => {
-    if (!formData.secretCode.trim()) return setError("secretCode", "Access code is required.");
+    const code = formData.secretCode.trim();
+    if (!code) return setError("secretCode", "Access code is required.");
+
     setIsLoading(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, secretCode: code }),
       });
       const data = await response.json();
       if (data.success) {
@@ -150,18 +175,6 @@ export default function Register() {
 
   const availableDepartments = formData.role && formData.role !== "MD/CEO" ? Object.keys(roleData[formData.role] || {}) : [];
   const availableDesignations = formData.department && formData.role !== "MD/CEO" ? (roleData[formData.role]?.[formData.department] || []) : [];
-
-  const InputWrapper = ({ field, children }: { field: string; children: React.ReactNode }) => (
-    <div>
-      {children}
-      {fieldErrors[field] && (
-        <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
-          <span className="w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold flex-shrink-0">!</span>
-          {fieldErrors[field]}
-        </p>
-      )}
-    </div>
-  );
 
   const inputCls = (field: string) =>
     `flex items-center gap-3 bg-white border rounded-xl px-4 py-3 transition-all ${
@@ -268,7 +281,7 @@ export default function Register() {
           {step === 1 && (
             <div className="space-y-4">
               {/* Name */}
-              <InputWrapper field="name">
+              <InputWrapper field="name" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
                 <div className={inputCls("name")}>
                   <HiOutlineUser className={iconCls("name")} />
@@ -284,7 +297,7 @@ export default function Register() {
               </InputWrapper>
 
               {/* Email */}
-              <InputWrapper field="email">
+              <InputWrapper field="email" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Work Email</label>
                 <div className={inputCls("email")}>
                   <HiOutlineMail className={iconCls("email")} />
@@ -302,7 +315,7 @@ export default function Register() {
               </InputWrapper>
 
               {/* Phone */}
-              <InputWrapper field="phone">
+              <InputWrapper field="phone" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone Number</label>
                 <div className={inputCls("phone")}>
                   <HiOutlinePhone className={iconCls("phone")} />
@@ -320,7 +333,7 @@ export default function Register() {
               </InputWrapper>
 
               {/* Role */}
-              <InputWrapper field="role">
+              <InputWrapper field="role" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Role</label>
                 <div className={inputCls("role")}>
                   <HiOutlineBriefcase className={iconCls("role")} />
@@ -340,7 +353,7 @@ export default function Register() {
 
               {/* Department */}
               {formData.role && formData.role !== "MD/CEO" && (
-                <InputWrapper field="department">
+                <InputWrapper field="department" fieldErrors={fieldErrors}>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Department</label>
                   <div className={inputCls("department")}>
                     <HiOutlineOfficeBuilding className={iconCls("department")} />
@@ -359,7 +372,7 @@ export default function Register() {
 
               {/* Designation */}
               {formData.department && formData.role !== "MD/CEO" && (
-                <InputWrapper field="designation">
+                <InputWrapper field="designation" fieldErrors={fieldErrors}>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Designation</label>
                   <div className={inputCls("designation")}>
                     <HiOutlineBriefcase className={iconCls("designation")} />
@@ -377,7 +390,7 @@ export default function Register() {
               )}
 
               {/* Password */}
-              <InputWrapper field="password">
+              <InputWrapper field="password" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
                 <div className={inputCls("password")}>
                   <HiOutlineLockClosed className={iconCls("password")} />
@@ -398,7 +411,7 @@ export default function Register() {
               </InputWrapper>
 
               {/* Confirm Password */}
-              <InputWrapper field="confirmPassword">
+              <InputWrapper field="confirmPassword" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label>
                 <div className={inputCls("confirmPassword")}>
                   <HiOutlineLockClosed className={iconCls("confirmPassword")} />
@@ -450,7 +463,7 @@ export default function Register() {
                 </div>
               </div>
 
-              <InputWrapper field="secretCode">
+              <InputWrapper field="secretCode" fieldErrors={fieldErrors}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Secret Access Code</label>
                 <div className={inputCls("secretCode")}>
                   <HiOutlineShieldCheck className={iconCls("secretCode")} />
